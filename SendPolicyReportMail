@@ -1,0 +1,40 @@
+CREATE PROCEDURE dbo.SendPolicyReportMail
+    @MailTo NVARCHAR(MAX),
+    @PackageName NVARCHAR(255),
+    @StartTime DATETIME,
+    @MailMessage NVARCHAR(MAX),
+    @IsSuccess BIT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @MailSubject NVARCHAR(500);
+    DECLARE @MailBody NVARCHAR(MAX);
+    DECLARE @MailHeader NVARCHAR(MAX) = 
+        '<table border=1>
+            <tr>
+                <th>Table Name</th>
+                <th>No.of Master</th>
+                <th>No.of Secondary</th>
+                <th>Equal Flag</th>
+            </tr>';
+    DECLARE @MailFooter NVARCHAR(MAX) = '</table>';
+
+    -- Compose subject
+    IF @IsSuccess = 1
+        SET @MailSubject = '[PruPolicy] package name: ' + @PackageName + ' succeeded on ' + CONVERT(VARCHAR(10), @StartTime, 120);
+    ELSE
+        SET @MailSubject = '[PruPolicy] package name: ' + @PackageName + ' failed on ' + CONVERT(VARCHAR(10), @StartTime, 120);
+
+    -- Compose body
+    SET @MailBody = @MailHeader + ISNULL(@MailMessage, '') + @MailFooter;
+
+    -- Send email
+    EXEC msdb.dbo.sp_send_dbmail
+        @profile_name = 'YourDatabaseMailProfile', -- Change to your Database Mail profile name
+        @recipients = @MailTo,
+        @subject = @MailSubject,
+        @body = @MailBody,
+        @body_format = 'HTML',
+        @from_address = 'prubot@prudential.co.th';
+END
